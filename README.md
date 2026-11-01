@@ -1,114 +1,232 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# NestJS Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API сервис на базе **NestJS**, **Prisma ORM** и **PostgreSQL**, реализующий полноценную систему аутентификации (JWT + Refresh Cookies), стандартизацию ответов и ошибок, документирование через Swagger (OpenAPI) и готовые тесты коллекции в Bruno.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Стек технологий
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Фреймворк:** [NestJS](https://nestjs.com/) (Express, TypeScript ESM)
+- **База данных:** [PostgreSQL 16](https://www.postgresql.org/) (Docker Compose)
+- **ORM:** [Prisma 7](https://www.prisma.io/) (с драйвером `@prisma/adapter-pg`)
+- **Аутентификация & Безопасность:**
+  - [Passport.js](http://www.passportjs.org/) + `passport-jwt`
+  - `@nestjs/jwt` (Access Token)
+  - Хеширование паролей: [argon2](https://github.com/ranisalt/node-argon2)
+  - Сессионные куки: `cookie-parser` (HttpOnly Refresh Token)
+- **Валидация:** `class-validator`, `class-transformer`
+- **Документация:** `@nestjs/swagger` + Swagger UI
+- **Линтинг и тестирование:** [oxlint](https://oxc.rs/), [Vitest](https://vitest.dev/)
+- **API Клиент:** [Bruno](https://www.usebruno.com/) (коллекция хранится прямо в репозитории)
 
-## Project setup
+---
 
-```bash
-$ bun install
+## Архитектура и ключевые особенности
+
+1. **Аутентификация по Best Practices:**
+   - **Access Token:** короткоживущий JWT-токен, передается в заголовке `Authorization: Bearer <token>`.
+   - **Refresh Token:** долгоживущий JWT-токен, передается в безопасной `HttpOnly` Cookie (защита от XSS-атак).
+   - Эндпоинт `/auth/me` для проверки текущей сессии с кастомным декоратором `@Authorized()`.
+
+2. **Стандартизация API:**
+   - **Успешные ответы:** перехватываются глобальным `ResponseInterceptor` и оборачиваются в:
+     ```json
+     {
+       "data": { ... },
+       "error": false,
+       "code": 200
+     }
+     ```
+   - **Ошибки и валидация:** перехватываются глобальным фильтром `AllExceptionsFilter` и форматируются в строгий контракт:
+     ```json
+     {
+       "message": "Описание ошибки или список ошибок валидации",
+       "error": true,
+       "code": 400
+     }
+     ```
+
+3. **Чистый Swagger (OpenAPI):**
+   - Документация не загромождает контроллеры благодаря композитным декораторам в `auth.swagger.ts`.
+   - Поддерживает тестирование как с Bearer токеном, так и с cookie.
+
+4. **Интеграция с Bruno:**
+   - Все запросы для тестирования CRUD/Auth сохранены в папке `bruno/` и готовы к запуску сразу после клонирования репозитория.
+
+---
+
+## Структура проекта
+
+```text
+nest-try/
+├── .agents/                    # Инструкции и навыки агентов
+├── bruno/                      # Коллекция API запросов для Bruno
+│   └── NestJS API/
+│       ├── auth/               # Запросы авторизации (register, login, me, refresh, logout)
+│       └── environments/       # Переменные окружения (baseUrl и др.)
+├── prisma/
+│   └── schema.prisma           # Схема базы данных PostgreSQL
+├── src/
+│   ├── auth/                   # Модуль аутентификации
+│   │   ├── decorators/         # Декораторы (@Authorized, @Authorization)
+│   │   ├── dto/                # DTO с валидацией и Swagger-схемами
+│   │   ├── guards/             # JWT Guards
+│   │   ├── interfaces/         # Интерфейсы токенов
+│   │   ├── strategies/         # Passport JWT стратегия
+│   │   ├── auth.controller.ts  # Маршруты аутентификации
+│   │   ├── auth.service.ts     # Бизнес-логика (хеширование, выдача токенов)
+│   │   └── auth.swagger.ts     # Документация Swagger (applyDecorators)
+│   ├── common/
+│   │   ├── filters/            # Глобальный фильтр ошибок AllExceptionsFilter
+│   │   └── interceptors/       # Глобальный интерцептор успешных ответов
+│   ├── config/                 # Конфигурация JWT и Swagger
+│   ├── prisma/                 # Сервис подключения к БД
+│   ├── utils/                  # Вспомогательные утилиты
+│   ├── app.module.ts           # Корневой модуль приложения
+│   └── main.ts                 # Точка входа (pipes, filters, interceptors, swagger)
+├── docker-compose.yml          # Запуск контейнера PostgreSQL
+├── package.json
+└── tsconfig.json
 ```
 
-## Compile and run the project
+---
+
+## Пошаговая инструкция по запуску
+
+### 1. Требования к окружению
+
+- [Node.js](https://nodejs.org/) (v20+ или v22+) или [Bun](https://bun.sh/)
+- [Docker](https://www.docker.com/) и Docker Compose (для запуска PostgreSQL)
+- [Git](https://git-scm.com/)
+
+---
+
+### 2. Клонирование и установка зависимостей
 
 ```bash
-# development
-$ bun run start
+git clone https://github.com/suddenbl/nest-backend-auth.git
+cd nest-backend-auth
 
-# watch mode
-$ bun run start:dev
-
-# production mode
-$ bun run start:prod
+# Установка зависимостей (через bun или npm):
+bun install
+# или
+npm install
 ```
 
-## Run tests
+---
+
+### 3. Настройка переменных окружения
+
+Скопируйте пример файла конфигурации:
 
 ```bash
-# unit tests
-$ bun run test
-
-# e2e tests
-$ bun run test:e2e
-
-# test coverage
-$ bun run test:cov
+cp .env.example .env
 ```
 
-## Deployment
+При необходимости отредактируйте параметры в `.env`:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```env
+NODE_ENV=development
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+COOKIE_DOMAIN=localhost
+
+JWT_SECRET=super_secret_jwt_key_change_me
+JWT_ACCESS_TOKEN_TTL=2h
+JWT_REFRESH_TOKEN_TTL=7d
+
+POSTGRES_USER=root
+POSTGRES_PASSWORD=root
+POSTGRES_DATABASE=nest_backend_auth
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5433
+DATABASE_URL=postgresql://root:root@localhost:5433/nest_try?schema=public
+```
+
+---
+
+### 4. Запуск базы данных
+
+Запустите PostgreSQL в фоновом режиме через Docker Compose:
 
 ```bash
-$ bun install -g @nestjs/mau
-$ mau deploy
+docker compose up -d
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Примените схему Prisma к базе данных:
 
-## Observability
+```bash
+npx prisma db push
+```
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+_(Опционально)_ Сгенерировать Prisma Client, если еще не был сгенерирован:
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+```bash
+npx prisma generate
+```
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+---
 
-## Resources
+### 5. Запуск приложения
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+# Режим разработки с hot-reload:
+bun run start:dev
+# или
+npm run start:dev
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Сборка проекта:
+bun run build # (или npm run build)
 
-## Support
+# Запуск собранного проекта:
+bun run start:prod
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+После старта сервер доступен по адресу: **`http://localhost:3000`**
 
-## Stay in touch
+---
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Документация API (Swagger UI)
 
-## License
+Интерактивная документация OpenAPI доступна сразу после запуска приложения:
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **[http://localhost:3000/api](http://localhost:3000/api)**
+
+Спецификация в форматах JSON и YAML:
+
+- `http://localhost:3000/swagger.json`
+- `http://localhost:3000/swagger.yaml`
+
+---
+
+## Тестирование API через Bruno
+
+В проект уже встроена готовая коллекция для [Bruno](https://www.usebruno.com/):
+
+1. Установите и откройте приложение **Bruno**.
+2. Нажмите **Open Collection**.
+3. Выберите папку `bruno/NestJS API` в корне проекта.
+4. В верхнем правом углу переключите Environment на **`local`**.
+5. Готово! Вам доступны запросы:
+   - `POST /auth/register` — регистрация нового пользователя
+   - `POST /auth/login` — вход и установка refresh cookie
+   - `GET /auth/me` — получение данных текущего пользователя (требует Bearer токен)
+   - `GET /auth/refresh` — ротация access-токена по cookie
+   - `GET /auth/logout` — выход и очистка сессионных кук
+
+Запуск тестов коллекции через консоль:
+
+```bash
+npx @usebruno/cli run "bruno/NestJS API" --env local
+```
+
+---
+
+## Полезные команды
+
+| Команда                             | Описание                                                  |
+| :---------------------------------- | :-------------------------------------------------------- |
+| `npm run lint` / `bun run lint`     | Быстрая проверка кода линтером `oxlint`                   |
+| `npm run format` / `bun run format` | Форматирование исходного кода Prettier                    |
+| `npm run test` / `bun run test`     | Запуск unit-тестов с помощью Vitest                       |
+| `npm run test:e2e`                  | Запуск e2e-тестов                                         |
+| `npx prisma studio`                 | Веб-интерфейс для просмотра и редактирования записей в БД |

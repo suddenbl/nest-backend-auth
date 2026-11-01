@@ -1,6 +1,6 @@
 # NestJS Backend API
 
-REST API сервис на базе **NestJS**, **Prisma ORM** и **PostgreSQL**, реализующий полноценную систему аутентификации (JWT + Refresh Cookies), стандартизацию ответов и ошибок, документирование через Swagger (OpenAPI) и готовые тесты коллекции в Bruno.
+REST API сервис на базе **NestJS**, **Prisma ORM** и **PostgreSQL**, реализующий систему аутентификации (JWT + Refresh Cookies), стандартизацию ответов и ошибок, документирование через Swagger (OpenAPI) и готовые тесты коллекции в Bruno.
 
 ---
 
@@ -16,14 +16,13 @@ REST API сервис на базе **NestJS**, **Prisma ORM** и **PostgreSQL**
   - Сессионные куки: `cookie-parser` (HttpOnly Refresh Token)
 - **Валидация:** `class-validator`, `class-transformer`
 - **Документация:** `@nestjs/swagger` + Swagger UI
-- **Линтинг и тестирование:** [oxlint](https://oxc.rs/), [Vitest](https://vitest.dev/)
 - **API Клиент:** [Bruno](https://www.usebruno.com/) (коллекция хранится прямо в репозитории)
 
 ---
 
 ## Архитектура и ключевые особенности
 
-1. **Аутентификация по Best Practices:**
+1. **Аутентификация:**
    - **Access Token:** короткоживущий JWT-токен, передается в заголовке `Authorization: Bearer <token>`.
    - **Refresh Token:** долгоживущий JWT-токен, передается в безопасной `HttpOnly` Cookie (защита от XSS-атак).
    - Эндпоинт `/auth/me` для проверки текущей сессии с кастомным декоратором `@Authorized()`.
@@ -58,12 +57,8 @@ REST API сервис на базе **NestJS**, **Prisma ORM** и **PostgreSQL**
 ## Структура проекта
 
 ```text
-nest-try/
-├── .agents/                    # Инструкции и навыки агентов
+nest-backend-auth/
 ├── bruno/                      # Коллекция API запросов для Bruno
-│   └── NestJS API/
-│       ├── auth/               # Запросы авторизации (register, login, me, refresh, logout)
-│       └── environments/       # Переменные окружения (baseUrl и др.)
 ├── prisma/
 │   └── schema.prisma           # Схема базы данных PostgreSQL
 ├── src/
@@ -226,7 +221,5 @@ npx @usebruno/cli run "bruno/NestJS API" --env local
 | Команда                             | Описание                                                  |
 | :---------------------------------- | :-------------------------------------------------------- |
 | `npm run lint` / `bun run lint`     | Быстрая проверка кода линтером `oxlint`                   |
-| `npm run format` / `bun run format` | Форматирование исходного кода Prettier                    |
-| `npm run test` / `bun run test`     | Запуск unit-тестов с помощью Vitest                       |
-| `npm run test:e2e`                  | Запуск e2e-тестов                                         |
+| `npm run format` / `bun run format` | Форматирование исходного кода Prettier                    |     |
 | `npx prisma studio`                 | Веб-интерфейс для просмотра и редактирования записей в БД |
